@@ -15,6 +15,7 @@
 
 #define SET_HTML_CMD "sethtml="
 #define SET_AP_CMD "setap="
+#define SET_MAC_CMD "setmac="
 #define RESET_CMD "reset"
 #define START_CMD "start"
 #define ACK_CMD "ack"
@@ -32,6 +33,7 @@ bool password_received = false;
 
 char apName[30] = "";
 char index_html[MAX_HTML_SIZE] = "TEST";
+uint8_t customMac[6] = {0};  // For storing the custom MAC address
 
 // RESET
 void (*resetFunction)(void) = 0;
@@ -100,6 +102,14 @@ void startAP() {
   Serial.println(apName);
 
   WiFi.mode(WIFI_AP);
+
+  // Set custom MAC address if provided
+  if (customMac[0] != 0 || customMac[1] != 0 || customMac[2] != 0 || customMac[3] != 0 || customMac[4] != 0 || customMac[5] != 0) {
+    WiFi.softAPsetMac(customMac);
+    Serial.print("Custom MAC address set: ");
+    Serial.printf("%02X:%02X:%02X:%02X:%02X:%02X\n", customMac[0], customMac[1], customMac[2], customMac[3], customMac[4], customMac[5]);
+  }
+
   WiFi.softAP(apName);
 
   Serial.print("ap ip address: ");
@@ -125,6 +135,18 @@ bool checkForCommand(char *command) {
   return received;
 }
 
+// Function to parse and set the custom MAC address from the serial input
+void setMacAddress(const char* serialMessage) {
+  int macBytes[6];
+  sscanf(serialMessage, "%02x:%02x:%02x:%02x:%02x:%02x", 
+         &macBytes[0], &macBytes[1], &macBytes[2], 
+         &macBytes[3], &macBytes[4], &macBytes[5]);
+  for (int i = 0; i < 6; i++) {
+    customMac[i] = (uint8_t)macBytes[i];
+  }
+  Serial.println("Custom MAC address received.");
+}
+
 void getInitInput() {
   // wait for html
   Serial.println("Waiting for HTML");
@@ -145,6 +167,9 @@ void getInitInput() {
           strncpy(apName, serialMessage, strlen(serialMessage) - 1);
           has_ap = true;
           Serial.println("ap set");
+        } else if (strncmp(serialMessage, SET_MAC_CMD, strlen(SET_MAC_CMD)) == 0) {
+          serialMessage += strlen(SET_MAC_CMD);
+          setMacAddress(serialMessage);  // Parse and set MAC address
         } else if (strncmp(serialMessage, RESET_CMD, strlen(RESET_CMD)) == 0) {
           resetFunction();
         }
